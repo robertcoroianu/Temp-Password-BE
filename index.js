@@ -1,6 +1,7 @@
 // @ts-nocheck
 import Fastify from 'fastify'
 import fastifyRedis from 'fastify-redis'
+import fastifyCors from 'fastify-cors'
 import { generate_pwd }  from './utils/pwd-generator.js'
 
 // Fastify
@@ -18,6 +19,7 @@ fastify.addContentTypeParser('application/json', { parseAs: 'string' }, function
       done(err, undefined)
     }
 })
+fastify.register(fastifyCors)
 
 // Redis
 fastify.register(fastifyRedis, { 
@@ -30,12 +32,13 @@ fastify.register(fastifyRedis, {
 fastify.post('/generate', (req, reply) => {
     const { redis } = fastify
     const id = req.body.id 
-    const randomPwd = parseInt(Date.now() * Math.random())
+    const expireTime = 30 // In seconds 
+    const randomPwd = generate_pwd(8)
     redis.set(id, randomPwd, (err) => {
         reply.status(err ? 400 : 201)
-        reply.send(err || { status: 'ok', password: randomPwd })
+        reply.send(err || { status: 'ok', password: randomPwd, expireIn: expireTime })
+        redis.expire(id, expireTime)
     })
-    redis.expire(id, 30)
 })
 
 // Run
